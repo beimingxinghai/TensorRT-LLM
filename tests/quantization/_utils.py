@@ -21,6 +21,8 @@ import tensorrt_llm
 def woq_torch_dtype(dtype):
     if dtype == "float16":
         torch_dtype = torch.half
+    elif dtype == "bfloat16":
+        torch_dtype = torch.bfloat16
     else:
         assert (False)
     return torch_dtype
@@ -46,13 +48,18 @@ def woq_conversion(weight, wTypeId):
 
 
 def woq_groupwise_extract_int4(w_packed, uint4_input=False):
+    print(f'before extract int4: {w_packed.shape}')
     w_packed_int8 = w_packed.T.contiguous().view(torch.uint8)
+    print(f'after extract int4: {w_packed_int8.shape}')
+    # 两个uint8数据取低4位，一个相当于& 0x0F，另一个相当于>> 4
     w_unpacked_int4 = torch.stack(
         ((w_packed_int8 % 16).view(-1, 1), (w_packed_int8 // 16).view(-1, 1)),
         dim=1)
     # Unpacked uint4s
+    print(f'unpacked int4 shape: {w_unpacked_int4.shape}')
     w_unpacked_int4 = w_unpacked_int4.flatten().view(w_packed.shape[1],
                                                      -1).T.contiguous().int()
+    print(f'output shape: {w_unpacked_int4.shape}')
     if not uint4_input:
         w_unpacked_int4 -= 8
     return w_unpacked_int4
@@ -100,23 +107,27 @@ def woq_assert_colwise_near_eq(ref, act, wTypeId):
         bits_in_type = 8
     else:
         bits_in_type = 4
+    # 计算量化误差单位
     quant_range_scale = 1.0 / float(1 << (bits_in_type - 1))
 
     # check each column independently
+    print(f'ref shape: {ref.shape}')
     if ref.shape[0] > 1:
+        # 计算每一列的最大值
         for col_idx in range(ref.shape[-1]):
             col = ref[:, col_idx]
             max_val = torch.max(col).item()
             atol = (max_val * quant_range_scale) * 1.5  # allow for rounding
-            np.testing.assert_allclose(col.cpu().numpy(),
-                                       act[:, col_idx].cpu().numpy(),
-                                       atol=atol)
+            torch.allclose(col.cpu(),
+                            act[:, col_idx].cpu(),
+                            atol=atol)
     else:
         max_val = torch.max(ref).item()
+        # 计算量化绝对误差
         atol = (max_val * quant_range_scale) * 1.5  # allow for rounding
-        np.testing.assert_allclose(ref.cpu().numpy(),
-                                   act.cpu().numpy(),
-                                   atol=atol)
+        torch.allclose(ref.cpu(),
+                        act.cpu(),
+                        atol=atol)
 
 
 def gt_matmul_smooth_quant(mat1, mat2, scale_a_, scale_b_, dtype, bias=None):

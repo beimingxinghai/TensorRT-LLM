@@ -134,6 +134,7 @@ def weight_only_groupwise_quant_matmul(input: Tensor,
 
         return cast(res, dtype)
     else:
+        print("Using plugin for weight_only_groupwise_quant_matmul")
         plg_creator = trt.get_plugin_registry().get_plugin_creator(
             'WeightOnlyGroupwiseQuantMatmul', '1', TRT_LLM_PLUGIN_NAMESPACE)
         assert plg_creator is not None

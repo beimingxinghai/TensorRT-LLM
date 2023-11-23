@@ -26,3 +26,5 @@ tensorrt_llm/bindings/*.pyi
 # Testing
 .coverage.*
 results_trt/
+
+Llama-2-7b-chat-hf/

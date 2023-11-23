@@ -238,6 +238,7 @@ nvinfer1::DimsExprs WeightOnlyGroupwiseQuantMatmulPlugin::getOutputDimensions(
 bool WeightOnlyGroupwiseQuantMatmulPlugin::supportsFormatCombination(
     int pos, const nvinfer1::PluginTensorDesc* inOut, int nbInputs, int nbOutputs) noexcept
 {
+    // printf("input pos = %d, input pos type = %d, input pos format = %d\n", pos, inOut[pos].type, inOut[pos].format);
     if (pos < mBiasesInputIdx + 2)
     {
         if (pos == mWeightInputIdx)
